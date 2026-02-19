@@ -50,6 +50,9 @@ func ParseContactFile(path string) (model.Contact, error) {
 		}
 	}
 
+	// Initialize relation slices (ensures JSON outputs [] not null)
+	contact.EnsureRelationSlices()
+
 	// Compute runtime fields
 	contact.DaysSince = contact.DaysSinceContact()
 	if contact.IsOverdue() {

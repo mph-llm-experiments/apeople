@@ -82,6 +82,11 @@ type Contact struct {
 	LastInteractionType  string   `yaml:"last_interaction_type,omitempty" json:"last_interaction_type,omitempty"`
 	RelatedContactLabels []string `yaml:"related_contact_labels,omitempty" json:"related_contact_labels,omitempty"`
 
+	// Cross-app relationship fields (asystem connective tissue)
+	RelatedPeople []string `yaml:"related_people,omitempty" json:"related_people"`
+	RelatedTasks  []string `yaml:"related_tasks,omitempty" json:"related_tasks"`
+	RelatedIdeas  []string `yaml:"related_ideas,omitempty" json:"related_ideas"`
+
 	// Runtime/computed fields (not in YAML)
 	FilePath         string `yaml:"-" json:"file_path,omitempty"`
 	Content          string `yaml:"-" json:"-"`
@@ -94,6 +99,20 @@ type Interaction struct {
 	Date    time.Time       `yaml:"date"`
 	Type    InteractionType `yaml:"type"`
 	Summary string          `yaml:"summary,omitempty"`
+}
+
+// EnsureRelationSlices initializes nil relation slices to empty slices
+// so JSON output shows [] instead of null.
+func (c *Contact) EnsureRelationSlices() {
+	if c.RelatedPeople == nil {
+		c.RelatedPeople = []string{}
+	}
+	if c.RelatedTasks == nil {
+		c.RelatedTasks = []string{}
+	}
+	if c.RelatedIdeas == nil {
+		c.RelatedIdeas = []string{}
+	}
 }
 
 // GetFrequencyDays returns the contact frequency in days

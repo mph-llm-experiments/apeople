@@ -264,6 +264,19 @@ func showCommand(cfg *config.Config) *Command {
 				fmt.Printf("\n  Tags: %s\n", strings.Join(tagStrs, " "))
 			}
 
+			if len(contact.RelatedPeople) > 0 || len(contact.RelatedTasks) > 0 || len(contact.RelatedIdeas) > 0 {
+				fmt.Println()
+				if len(contact.RelatedPeople) > 0 {
+					fmt.Printf("  Related people: %s\n", strings.Join(contact.RelatedPeople, ", "))
+				}
+				if len(contact.RelatedTasks) > 0 {
+					fmt.Printf("  Related tasks:  %s\n", strings.Join(contact.RelatedTasks, ", "))
+				}
+				if len(contact.RelatedIdeas) > 0 {
+					fmt.Printf("  Related ideas:  %s\n", strings.Join(contact.RelatedIdeas, ", "))
+				}
+			}
+
 			if strings.TrimSpace(contact.Content) != "" {
 				fmt.Printf("\n---\n%s", contact.Content)
 			}
@@ -381,6 +394,14 @@ func updateCommand(cfg *config.Config) *Command {
 	state := fs.String("state", "", "Update state")
 	location := fs.String("location", "", "Update location")
 
+	// Cross-app relationship flags
+	addPerson := fs.String("add-person", "", "Add related contact (Denote ID)")
+	removePerson := fs.String("remove-person", "", "Remove related contact (Denote ID)")
+	addTask := fs.String("add-task", "", "Add related task (Denote ID)")
+	removeTask := fs.String("remove-task", "", "Remove related task (Denote ID)")
+	addIdea := fs.String("add-idea", "", "Add related idea (Denote ID)")
+	removeIdea := fs.String("remove-idea", "", "Remove related idea (Denote ID)")
+
 	return &Command{
 		Name:        "update",
 		Usage:       "apeople update <id> [options]",
@@ -442,6 +463,26 @@ func updateCommand(cfg *config.Config) *Command {
 					}
 				}
 				contact.Tags = contactTags
+			}
+
+			// Apply cross-app relationship updates
+			if *addPerson != "" {
+				contact.RelatedPeople = addToSlice(contact.RelatedPeople, *addPerson)
+			}
+			if *removePerson != "" {
+				contact.RelatedPeople = removeFromSlice(contact.RelatedPeople, *removePerson)
+			}
+			if *addTask != "" {
+				contact.RelatedTasks = addToSlice(contact.RelatedTasks, *addTask)
+			}
+			if *removeTask != "" {
+				contact.RelatedTasks = removeFromSlice(contact.RelatedTasks, *removeTask)
+			}
+			if *addIdea != "" {
+				contact.RelatedIdeas = addToSlice(contact.RelatedIdeas, *addIdea)
+			}
+			if *removeIdea != "" {
+				contact.RelatedIdeas = removeFromSlice(contact.RelatedIdeas, *removeIdea)
 			}
 
 			if err := parser.SaveContactFile(*contact); err != nil {
@@ -647,6 +688,27 @@ func deleteCommand(cfg *config.Config) *Command {
 			return nil
 		},
 	}
+}
+
+// addToSlice appends a value to a slice if not already present
+func addToSlice(slice []string, val string) []string {
+	for _, v := range slice {
+		if v == val {
+			return slice
+		}
+	}
+	return append(slice, val)
+}
+
+// removeFromSlice removes a value from a slice
+func removeFromSlice(slice []string, val string) []string {
+	result := make([]string, 0, len(slice))
+	for _, v := range slice {
+		if v != val {
+			result = append(result, v)
+		}
+	}
+	return result
 }
 
 // sanitizeSlug removes special characters from a filename slug
