@@ -87,7 +87,9 @@ apeople new "John Smith" --type work --tags "portland,tech" --style periodic
 ```bash
 apeople update 1 --email new@example.com
 apeople update 1 --type close --state followup
-apeople update 1 --tags "tech,portland,friend"    # Replaces non-contact tags
+apeople update 1 --add-tag portland              # Add a tag (preserves existing)
+apeople update 1 --remove-tag portland           # Remove a tag
+apeople update 1 --tags "tech,portland,friend"   # Replace all non-contact tags (use with care)
 ```
 
 ### Cross-App Relationships

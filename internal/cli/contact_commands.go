@@ -391,6 +391,8 @@ func updateCommand(cfg *config.Config) *Command {
 	company := fs.String("company", "", "Update company")
 	role := fs.String("role", "", "Update role")
 	tags := fs.String("tags", "", "Set tags (comma-separated, replaces existing non-contact tags)")
+	addTag := fs.String("add-tag", "", "Add a tag (preserves existing tags)")
+	removeTag := fs.String("remove-tag", "", "Remove a tag")
 	state := fs.String("state", "", "Update state")
 	location := fs.String("location", "", "Update location")
 
@@ -463,6 +465,18 @@ func updateCommand(cfg *config.Config) *Command {
 					}
 				}
 				contact.Tags = contactTags
+			}
+			if *addTag != "" {
+				tag := strings.TrimSpace(*addTag)
+				if tag != "" && tag != "contact" {
+					contact.Tags = addToSlice(contact.Tags, tag)
+				}
+			}
+			if *removeTag != "" {
+				tag := strings.TrimSpace(*removeTag)
+				if tag != "contact" {
+					contact.Tags = removeFromSlice(contact.Tags, tag)
+				}
 			}
 
 			// Apply cross-app relationship updates
