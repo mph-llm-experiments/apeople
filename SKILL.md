@@ -90,6 +90,29 @@ apeople update 1 --type close --state followup
 apeople update 1 --tags "tech,portland,friend"    # Replaces non-contact tags
 ```
 
+### Cross-App Relationships
+
+Link contacts to tasks (atask), ideas (anote), or other contacts (apeople) using Denote IDs:
+
+```bash
+# Add relationships
+apeople update 1 --add-task 20250610T141230
+apeople update 1 --add-idea 20250607T093045
+apeople update 1 --add-person 20250612T080000
+
+# Remove relationships
+apeople update 1 --remove-task 20250610T141230
+apeople update 1 --remove-idea 20250607T093045
+apeople update 1 --remove-person 20250612T080000
+```
+
+Relationships are stored in YAML frontmatter as arrays of Denote IDs:
+- `related_people` — linked contacts
+- `related_tasks` — linked tasks/projects from atask
+- `related_ideas` — linked ideas from anote
+
+Relationships are NOT automatically bidirectional. To link both directions, update both entities.
+
 ### Log Interaction
 
 ```bash
@@ -137,6 +160,9 @@ apeople delete 1 --confirm    # --confirm is required
   "company": "Acme Corp",
   "role": "Senior Engineer",
   "location": "Portland, OR",
+  "related_people": [],
+  "related_tasks": ["20250610T141230"],
+  "related_ideas": [],
   "file_path": "/path/to/20240715T093045--sarah-chen__contact.md",
   "days_since_contact": 14,
   "overdue_status": "good"
@@ -149,6 +175,7 @@ apeople delete 1 --confirm    # --confirm is required
 - `identifier`: Denote timestamp ID (also works for referencing)
 - `days_since_contact`: -1 if never contacted, otherwise days since last contact
 - `overdue_status`: "overdue", "attention", "good", or empty
+- `related_people`, `related_tasks`, `related_ideas`: Arrays of Denote IDs linking to other entities (always `[]`, never null)
 
 ## Global Options
 
@@ -188,6 +215,34 @@ apeople list --state followup --json
 
 # Search for someone
 apeople list --search "acme" --json
+```
+
+### Cross-App Workflow: Log Interaction and Create Follow-Up Task
+
+```bash
+# 1. Log the interaction
+apeople log 5 --interaction call --note "Discussed proposal timeline"
+
+# 2. Create a follow-up task in atask
+atask new "Follow up on Sarah's proposal" --due "next friday" --json
+# Note the denote_id from the output
+
+# 3. Link the contact to the task (both directions)
+apeople update 5 --add-task <task-denote-id>
+atask update <task-index-id> --add-person 20240715T093045
+```
+
+### Cross-App Workflow: Find Everything Related to a Person
+
+```bash
+# 1. Get the contact's relationships
+apeople show 5 --json | jq '{tasks: .related_tasks, ideas: .related_ideas}'
+
+# 2. Look up each linked task
+atask list --json | jq '[.tasks[] | select(.denote_id == "20250610T141230")]'
+
+# 3. Look up each linked idea
+anote --json list | jq '[.[] | select(.denote_id == "20250607T093045")]'
 ```
 
 ### Creating a Contact from Conversation
