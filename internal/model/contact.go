@@ -53,37 +53,40 @@ const (
 // Contact represents a contact record
 type Contact struct {
 	// Core fields from frontmatter
-	Title            string           `yaml:"title"`
-	Date             time.Time        `yaml:"date"`
-	Tags             []string         `yaml:"tags"`
-	Identifier       string           `yaml:"identifier"`
-	Email            string           `yaml:"email,omitempty"`
-	Phone            string           `yaml:"phone,omitempty"`
-	RelationshipType RelationshipType `yaml:"relationship_type"`
-	State            string           `yaml:"state,omitempty"`
-	Label            string           `yaml:"label,omitempty"`
-	ContactStyle     ContactStyle     `yaml:"contact_style,omitempty"`
-	LastContacted    *time.Time       `yaml:"last_contacted,omitempty"`
-	LastBumpDate     *time.Time       `yaml:"last_bump_date,omitempty"`
-	BumpCount        int              `yaml:"bump_count,omitempty"`
-	UpdatedAt        time.Time        `yaml:"updated_at"`
+	Title            string           `yaml:"title" json:"title"`
+	Date             time.Time        `yaml:"date" json:"date"`
+	Tags             []string         `yaml:"tags" json:"tags"`
+	Identifier       string           `yaml:"identifier" json:"identifier"`
+	IndexID          int              `yaml:"index_id,omitempty" json:"index_id"`
+	Email            string           `yaml:"email,omitempty" json:"email,omitempty"`
+	Phone            string           `yaml:"phone,omitempty" json:"phone,omitempty"`
+	RelationshipType RelationshipType `yaml:"relationship_type" json:"relationship_type"`
+	State            string           `yaml:"state,omitempty" json:"state,omitempty"`
+	Label            string           `yaml:"label,omitempty" json:"label,omitempty"`
+	ContactStyle     ContactStyle     `yaml:"contact_style,omitempty" json:"contact_style,omitempty"`
+	LastContacted    *time.Time       `yaml:"last_contacted,omitempty" json:"last_contacted,omitempty"`
+	LastBumpDate     *time.Time       `yaml:"last_bump_date,omitempty" json:"last_bump_date,omitempty"`
+	BumpCount        int              `yaml:"bump_count,omitempty" json:"bump_count,omitempty"`
+	UpdatedAt        time.Time        `yaml:"updated_at" json:"updated_at"`
 
 	// Optional fields
-	Company              string   `yaml:"company,omitempty"`
-	Role                 string   `yaml:"role,omitempty"`
-	Location             string   `yaml:"location,omitempty"`
-	Birthday             string   `yaml:"birthday,omitempty"`
-	LinkedIn             string   `yaml:"linkedin,omitempty"`
-	Twitter              string   `yaml:"twitter,omitempty"`
-	Website              string   `yaml:"website,omitempty"`
-	Notes                string   `yaml:"notes,omitempty"`
-	CustomFrequencyDays  int      `yaml:"custom_frequency_days,omitempty"`
-	LastInteractionType  string   `yaml:"last_interaction_type,omitempty"`
-	RelatedContactLabels []string `yaml:"related_contact_labels,omitempty"`
+	Company              string   `yaml:"company,omitempty" json:"company,omitempty"`
+	Role                 string   `yaml:"role,omitempty" json:"role,omitempty"`
+	Location             string   `yaml:"location,omitempty" json:"location,omitempty"`
+	Birthday             string   `yaml:"birthday,omitempty" json:"birthday,omitempty"`
+	LinkedIn             string   `yaml:"linkedin,omitempty" json:"linkedin,omitempty"`
+	Twitter              string   `yaml:"twitter,omitempty" json:"twitter,omitempty"`
+	Website              string   `yaml:"website,omitempty" json:"website,omitempty"`
+	Notes                string   `yaml:"notes,omitempty" json:"notes,omitempty"`
+	CustomFrequencyDays  int      `yaml:"custom_frequency_days,omitempty" json:"custom_frequency_days,omitempty"`
+	LastInteractionType  string   `yaml:"last_interaction_type,omitempty" json:"last_interaction_type,omitempty"`
+	RelatedContactLabels []string `yaml:"related_contact_labels,omitempty" json:"related_contact_labels,omitempty"`
 
-	// Runtime fields (not in YAML)
-	FilePath string `yaml:"-"`
-	Content  string `yaml:"-"` // Markdown content after frontmatter
+	// Runtime/computed fields (not in YAML)
+	FilePath         string `yaml:"-" json:"file_path,omitempty"`
+	Content          string `yaml:"-" json:"-"`
+	DaysSince        int    `yaml:"-" json:"days_since_contact"`
+	OverdueStatus    string `yaml:"-" json:"overdue_status,omitempty"`
 }
 
 // Interaction represents a single interaction with a contact

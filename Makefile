@@ -1,7 +1,7 @@
 .PHONY: build install clean test run
 
 # Binary name
-BINARY_NAME=denote-contacts
+BINARY_NAME=apeople
 
 # Build the binary
 build:

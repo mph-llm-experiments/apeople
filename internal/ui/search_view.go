@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mph-llm-experiments/denote-contacts/internal/model"
+	"github.com/mph-llm-experiments/apeople/internal/model"
 )
 
 // updateSearch handles input in search mode

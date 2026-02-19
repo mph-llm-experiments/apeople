@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mph-llm-experiments/denote-contacts/internal/model"
+	"github.com/mph-llm-experiments/apeople/internal/model"
 )
 
 // Colors from denote-tasks

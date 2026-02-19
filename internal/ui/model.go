@@ -5,7 +5,7 @@ import (
 	
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mph-llm-experiments/denote-contacts/internal/model"
+	"github.com/mph-llm-experiments/apeople/internal/model"
 )
 
 // ViewMode represents the current view

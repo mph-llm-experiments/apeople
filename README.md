@@ -1,6 +1,6 @@
-# denote-contacts
+# apeople
 
-A focused terminal-based contacts management system that uses the [Denote](https://protesilaos.com/emacs/denote) file naming convention. This tool is specifically designed for managing contacts as markdown files with a consistent, searchable format.
+An agent-first contacts management tool using the [Denote](https://protesilaos.com/emacs/denote) file naming convention. CLI commands for agent use, TUI as the default (no-args) mode. Part of the atask/anote/apeople ecosystem.
 
 **Note**: This project is not affiliated with the Denote project. It simply adopts Denote's excellent file naming convention for consistent contact identification.
 
@@ -22,72 +22,88 @@ While I appreciate and applaud assorted efforts to certify code and projects AI-
 
 ## Overview
 
-denote-contacts provides a streamlined TUI (Terminal User Interface) for managing personal and professional contacts. Each contact is stored as a markdown file with YAML frontmatter, using Denote's timestamp-based naming convention for unique identification.
+apeople provides both a CLI and TUI for managing personal and professional contacts. Each contact is stored as a markdown file with YAML frontmatter, using Denote's timestamp-based naming convention for unique identification.
 
 ### Key Features
 
-- **Focused Purpose**: Exclusively for contact management (not a general notes system)
+- **Agent-First CLI**: JSON output, subcommands, designed for AI agent workflows
+- **TUI Mode**: Full terminal UI when run with no arguments
 - **Smart Reminders**: Set contact frequencies based on relationship type
 - **Visual Status**: See at a glance who's overdue, due soon, or on track
-- **Quick Actions**: Log interactions, bump reviews, edit details with single keystrokes
+- **Quick Actions**: Log interactions, bump reviews, edit details
 - **Flexible Organization**: Tag and categorize contacts by type, style, and custom tags
-- **Task Integration**: Automatically creates tasks in [denote-tasks](https://github.com/pdxmph/denote-tasks) when contacts need attention
+- **Task Integration**: Creates tasks in [atask](https://github.com/mph-llm-experiments/atask) when contacts need attention
 
 ## Installation
 
 ```bash
-go install github.com/mph-llm-experiments/denote-contacts@latest
+go install github.com/mph-llm-experiments/apeople@latest
 ```
 
 Or clone and build:
 
 ```bash
-git clone https://github.com/mph-llm-experiments/denote-contacts.git
-cd denote-contacts
+git clone https://github.com/mph-llm-experiments/apeople.git
+cd apeople
 go build
 ```
 
 ## Configuration
 
-denote-contacts uses a TOML configuration file for settings. The config file should be placed at:
+apeople uses a TOML configuration file:
 
 ```
-~/.config/denote-contacts/config.toml
+~/.config/apeople/config.toml
 ```
 
 ### Example Configuration
 
 ```toml
-# Directory where your denote contact files are stored
-# Use full path or ~ for home directory
-notes_directory = "~/Documents/denote"
-```
-
-Copy `config.toml.example` from the project root to get started:
-
-```bash
-mkdir -p ~/.config/denote-contacts
-cp config.toml.example ~/.config/denote-contacts/config.toml
+# Directory where your contact files are stored
+contacts_directory = "~/Documents/denote"
 ```
 
 ### Configuration Priority
 
-1. Environment variable `DENOTE_CONTACTS_DIR` (highest priority)
-2. Config file setting `notes_directory`
-3. Default: `~/Documents/denote` (lowest priority)
+1. `--dir` flag (highest priority)
+2. `APEOPLE_DIR` environment variable
+3. Config file setting `contacts_directory`
+4. Legacy config at `~/.config/denote-contacts/config.toml`
+5. Default: `~/Documents/denote`
 
-## Usage
+## CLI Usage
 
 ```bash
-# Run with default contacts directory (~/contacts)
-denote-contacts
+# Launch TUI (default, no arguments)
+apeople
 
-# Specify a custom directory
-denote-contacts ~/my-contacts
+# List contacts
+apeople list
+apeople list --json
+apeople list --type close --overdue
+apeople list --search "portland" --sort days
 
-# Use the DENOTE_CONTACTS_DIR environment variable
-export DENOTE_CONTACTS_DIR=~/my-contacts
-denote-contacts
+# Show contact details
+apeople show 1
+apeople show 1 --json
+
+# Create a contact
+apeople new "Sarah Chen" --type close --email sarah@example.com --company "Acme Corp"
+
+# Update a contact
+apeople update 1 --state followup --tags "tech,portland"
+
+# Log an interaction
+apeople log 1 --interaction email --note "Discussed project timeline"
+
+# Bump (review without contacting)
+apeople bump 1
+
+# Delete a contact
+apeople delete 1 --confirm
+
+# Global options
+apeople list --dir ~/my-contacts --json --quiet
 ```
 
 ## Contact File Format
@@ -98,8 +114,9 @@ Contacts are stored as markdown files with YAML frontmatter:
 ---
 title: Jane Smith
 identifier: 20240715T093045
+index_id: 1
 date: 2024-07-15
-tags: [contact]
+tags: [contact, work, portland]
 email: jane@example.com
 phone: 555-0123
 company: Acme Corp
@@ -107,10 +124,10 @@ role: Senior Engineer
 location: Portland, OR
 relationship_type: work
 contact_style: periodic
-custom_frequency_days: 30
 state: ok
 last_contacted: 2024-07-01T10:30:00Z
 ---
+
 ## Notes
 
 Met at tech conference...
@@ -126,17 +143,14 @@ YYYYMMDDTHHMMSS--kebab-case-name__contact.md
 
 Example: `20240715T093045--jane-smith__contact.md`
 
-## Keyboard Controls
+## TUI Keyboard Controls
 
 ### List View
 
 - **Navigation**
-  - `j/↓` - Move down
-  - `k/↑` - Move up
-  - `g/Home` - Go to top
-  - `G/End` - Go to bottom
-  - `Ctrl+d` - Page down
-  - `Ctrl+u` - Page up
+  - `j/k` or arrows - Move up/down
+  - `g/G` - Go to top/bottom
+  - `Ctrl+d/u` - Page down/up
 
 - **Actions**
   - `Enter` - View contact details
@@ -156,15 +170,6 @@ Example: `20240715T093045--jane-smith__contact.md`
 - `d` - Log interaction
 - `b` - Bump contact
 - `q/Esc` - Back to list
-
-### Filter Options
-
-Press `f` from the list view to filter. Select one option to immediately apply:
-
-- **By Type**: (f)amily, (c)lose, (n)etwork, (w)ork, (r)ecruiters, (p)roviders, (s)ocial
-- **By State**: (F)ollow up, (P)ing, (S)cheduled, (T)imeout
-- **By Status**: (o)verdue, (d)ue soon, (g)ood timing
-- **Clear**: (a) - Show all contacts
 
 ## Contact Types & Default Frequencies
 
@@ -194,33 +199,15 @@ Override with `custom_frequency_days` in the frontmatter.
 - **scheduled** - Meeting/call is scheduled
 - **timeout** - No response, needs attention
 
-## Task Integration
+## Ecosystem
 
-When a contact's state changes to one requiring action (followup, ping, scheduled, timeout), denote-contacts automatically creates a task in [denote-tasks](https://github.com/pdxmph/denote-tasks) format. Tasks are created in `~/notes` by default and include:
+apeople is part of a trio of agent-first tools:
 
-- Link to the contact via `contact_id` field
-- Appropriate action verb (Follow up with, Ping, Meeting with, etc.)
-- Same label as the contact (if set)
-- Tagged with `task` and `contact-{state}`
+- **[atask](https://github.com/mph-llm-experiments/atask)** - Task management
+- **[anote](https://github.com/mph-llm-experiments/anote)** - Idea management
+- **apeople** - Contacts management
 
-## Status Indicators
-
-- **●** (red) - Overdue
-- **!** (yellow) - Due soon (within 7 days)
-- **●** (green) - Good timing (recently contacted)
-- **○** (gray) - OK / No frequency set
-
-## Tips
-
-1. Use tags to group contacts (e.g., `#portland`, `#conference`, `#client`)
-2. Set `contact_style: ambient` for contacts you only reach out to when needed
-3. Use the bump feature (`b`) to acknowledge you've thought about a contact without logging an interaction
-4. Quick filters are your friend - learn the hotkeys for fast navigation
-5. The search (`/`) is fuzzy and searches names, companies, emails, tags, and roles
-
-## Contributing
-
-Pull requests welcome! Please keep in mind this tool's focused purpose - it's specifically for contact management, not a general notes system.
+All use Denote file naming and are designed for AI agent workflows with `--json` output.
 
 ## License
 

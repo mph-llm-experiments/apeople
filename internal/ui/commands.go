@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mph-llm-experiments/denote-contacts/internal/model"
-	"github.com/mph-llm-experiments/denote-contacts/internal/parser"
+	"github.com/mph-llm-experiments/apeople/internal/model"
+	"github.com/mph-llm-experiments/apeople/internal/parser"
 )
 
 // Message types
@@ -36,60 +35,16 @@ type clearMessageMsg struct{}
 // loadContacts returns a command that loads all contacts from the directory
 func (m Model) loadContacts() tea.Cmd {
 	return func() tea.Msg {
-		contacts := []model.Contact{}
-		
-		// Check if the contacts directory exists
-		if _, err := os.Stat(m.contactsDir); os.IsNotExist(err) {
-			return errorMsg{err: fmt.Errorf("contacts directory '%s' does not exist. Please create it or check your configuration", m.contactsDir)}
-		} else if err != nil {
-			return errorMsg{err: fmt.Errorf("cannot access contacts directory '%s': %v", m.contactsDir, err)}
-		}
-		
-		// Check if it's actually a directory
-		if info, err := os.Stat(m.contactsDir); err != nil {
-			return errorMsg{err: fmt.Errorf("cannot stat contacts directory '%s': %v", m.contactsDir, err)}
-		} else if !info.IsDir() {
-			return errorMsg{err: fmt.Errorf("contacts path '%s' exists but is not a directory", m.contactsDir)}
-		}
-		
-		// Walk the contacts directory
-		err := filepath.Walk(m.contactsDir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return fmt.Errorf("error reading file '%s': %v", path, err)
-			}
-			
-			// Skip directories and non-markdown files
-			if info.IsDir() || !strings.HasSuffix(path, ".md") {
-				return nil
-			}
-			
-			// Check if it's a contact file
-			if !strings.Contains(filepath.Base(path), "__contact.md") {
-				return nil
-			}
-			
-			// Parse the contact file
-			contact, err := parser.ParseContactFile(path)
-			if err != nil {
-				// Log error but continue loading other files
-				return nil
-			}
-			
-			contact.FilePath = path
-			contacts = append(contacts, contact)
-			return nil
-		})
-		
+		contacts, err := parser.FindContacts(m.contactsDir)
 		if err != nil {
 			return errorMsg{err: err}
 		}
-		
-		// Sort contacts alphabetically by name for now
-		// TODO: Add configurable sort options
-		sort.Slice(contacts, func(i, j int) bool {
-			return strings.ToLower(contacts[i].Title) < strings.ToLower(contacts[j].Title)
-		})
-		
+
+		contacts, err = parser.AssignIndexIDs(m.contactsDir, contacts)
+		if err != nil {
+			return errorMsg{err: err}
+		}
+
 		return contactsLoadedMsg{contacts: contacts}
 	}
 }
@@ -104,16 +59,12 @@ func (m Model) logContactInteraction(contact model.Contact) tea.Cmd {
 		oldState := contact.State
 		contact.State = m.interactionState
 		
-		// Add note to content if provided
+		// Add interaction log entry
+		logEntry := fmt.Sprintf("- **%s** (%s)", now.Format("2006-01-02"), m.interactionType)
 		if m.interactionNote != "" {
-			// Add timestamp and note to the beginning of content
-			noteEntry := fmt.Sprintf("## %s - %s\n\n%s\n\n", 
-				now.Format("2006-01-02"),
-				m.interactionType,
-				m.interactionNote)
-			
-			contact.Content = noteEntry + contact.Content
+			logEntry += fmt.Sprintf(" - %s", m.interactionNote)
 		}
+		contact.Content = parser.AppendInteractionLog(contact.Content, logEntry)
 		
 		// Save the updated contact
 		err := parser.SaveContactFile(contact)

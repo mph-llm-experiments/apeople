@@ -2,36 +2,33 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mph-llm-experiments/denote-contacts/internal/config"
-	"github.com/mph-llm-experiments/denote-contacts/internal/ui"
+	"github.com/mph-llm-experiments/apeople/internal/cli"
+	"github.com/mph-llm-experiments/apeople/internal/config"
 )
 
+var version = "0.2.0"
+
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "--version" {
-		fmt.Println("denote-contacts v0.1.0")
-		os.Exit(0)
+	// Check for version flag early
+	for _, arg := range os.Args[1:] {
+		if arg == "--version" || arg == "-version" {
+			fmt.Printf("apeople v%s\n", version)
+			os.Exit(0)
+		}
 	}
 
-	// Load config
-	cfg, err := config.Load()
+	// Load initial config (may be overridden by global flags)
+	cfg, err := config.Load("")
 	if err != nil {
-		log.Fatal("Failed to load config:", err)
-	}
-	
-	// Allow environment variable to override config
-	contactsDir := os.Getenv("DENOTE_CONTACTS_DIR")
-	if contactsDir == "" {
-		contactsDir = cfg.NotesDirectory
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
 	}
 
-	m := ui.NewModel(contactsDir)
-	p := tea.NewProgram(m, tea.WithAltScreen())
-
-	if _, err := p.Run(); err != nil {
-		log.Fatal("Error running program:", err)
+	// Run CLI
+	if err := cli.Run(cfg, os.Args[1:]); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 }

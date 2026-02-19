@@ -1,4 +1,4 @@
-module github.com/mph-llm-experiments/denote-contacts
+module github.com/mph-llm-experiments/apeople
 
 go 1.21
 
