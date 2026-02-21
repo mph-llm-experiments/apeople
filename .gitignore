@@ -1,6 +1,7 @@
 contacts-data/
 
 # Binaries
+apeople
 denote-contacts
 *.exe
 
