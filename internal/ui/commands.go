@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/mph-llm-experiments/acore"
 	"github.com/mph-llm-experiments/apeople/internal/model"
 	"github.com/mph-llm-experiments/apeople/internal/parser"
 )
@@ -180,7 +181,7 @@ func (m Model) saveEditedContact() tea.Cmd {
 		
 		// Update the updated_at timestamp
 		now := time.Now()
-		contact.UpdatedAt = now
+		contact.Modified = now.UTC().Format(time.RFC3339)
 		
 		// Save the updated contact
 		err := parser.SaveContactFile(contact)
@@ -241,35 +242,27 @@ func (m Model) createTaskForContact(contact model.Contact, newState string) erro
 		taskTitle += " (no response)"
 	}
 	
-	// Generate task filename
+	// Generate task using acore identity
 	now := time.Now()
-	dateStr := now.Format("20060102T150405")
-	titleSlug := strings.ToLower(strings.ReplaceAll(taskTitle, " ", "-"))
-	titleSlug = strings.ReplaceAll(titleSlug, "(", "")
-	titleSlug = strings.ReplaceAll(titleSlug, ")", "")
-	titleSlug = strings.ReplaceAll(titleSlug, "'", "")
-	titleSlug = strings.ReplaceAll(titleSlug, ".", "")
-	
+	taskID := acore.NewID()
+
 	// Create tags based on contact
-	tags := []string{"task", fmt.Sprintf("contact-%s", newState)}
-	
-	// Generate index_id - simple timestamp-based ID
-	indexID := now.Unix() % 100000
-	
+	tags := []string{fmt.Sprintf("contact-%s", newState)}
+
 	// Create task content
 	var taskContent strings.Builder
 	taskContent.WriteString("---\n")
+	taskContent.WriteString(fmt.Sprintf("id: %s\n", taskID))
 	taskContent.WriteString(fmt.Sprintf("title: %s\n", taskTitle))
-	taskContent.WriteString(fmt.Sprintf("date: %s\n", now.Format("2006-01-02")))
+	taskContent.WriteString(fmt.Sprintf("type: task\n"))
 	taskContent.WriteString(fmt.Sprintf("tags: [%s]\n", strings.Join(tags, ", ")))
-	taskContent.WriteString(fmt.Sprintf("identifier: %s\n", dateStr))
-	taskContent.WriteString(fmt.Sprintf("index_id: %d\n", indexID))
-	taskContent.WriteString("type: task\n")
+	taskContent.WriteString(fmt.Sprintf("created: %s\n", now.UTC().Format(time.RFC3339)))
+	taskContent.WriteString(fmt.Sprintf("modified: %s\n", now.UTC().Format(time.RFC3339)))
 	taskContent.WriteString("status: open\n")
 	if contact.Label != "" {
 		taskContent.WriteString(fmt.Sprintf("label: %s\n", contact.Label))
 	}
-	taskContent.WriteString(fmt.Sprintf("contact_id: %s\n", contact.Identifier))
+	taskContent.WriteString(fmt.Sprintf("related_people:\n  - %s\n", contact.ID))
 	taskContent.WriteString("---\n\n")
 	
 	// Add task description
@@ -284,11 +277,11 @@ func (m Model) createTaskForContact(contact model.Contact, newState string) erro
 		taskContent.WriteString(fmt.Sprintf("%s has not responded. Consider following up or closing the loop.\n", contact.Title))
 	}
 	
-	// Save task file
-	filename := fmt.Sprintf("%s--%s__task.md", dateStr, titleSlug)
-	// Always save tasks to ~/notes directory
-	homeDir, _ := os.UserHomeDir()
-	notesDir := filepath.Join(homeDir, "notes")
+	// Save task file using acore filename convention
+	filename := acore.BuildFilename(taskID, taskTitle, "task")
+	// Save tasks to the atask directory via acore config
+	acoreCfg, _ := acore.LoadConfig()
+	notesDir := acoreCfg.DirFor("atask")
 	
 	// Create notes directory if it doesn't exist
 	if err := os.MkdirAll(notesDir, 0755); err != nil {
@@ -309,7 +302,7 @@ func (m Model) saveQuickTypeChange(contact model.Contact) tea.Cmd {
 	return func() tea.Msg {
 		// Update the updated_at timestamp
 		now := time.Now()
-		contact.UpdatedAt = now
+		contact.Modified = now.UTC().Format(time.RFC3339)
 
 		// Save the updated contact
 		err := parser.SaveContactFile(contact)
@@ -340,22 +333,15 @@ func (m Model) saveNewContact() tea.Cmd {
 		}
 		
 		// Create new contact from form values
-		now := time.Now()
-		dateStr := now.Format("20060102T150405")
-		contact := model.Contact{
-			Date:       now,
-			Title:      name,
-			Identifier: dateStr, // Set the identifier for task linkage
-			Email:      strings.TrimSpace(m.editValues[fieldEmail]),
-			Phone:      strings.TrimSpace(m.editValues[fieldPhone]),
-			Company:    strings.TrimSpace(m.editValues[fieldCompany]),
-			Role:       strings.TrimSpace(m.editValues[fieldRole]),
-			Location:   strings.TrimSpace(m.editValues[fieldLocation]),
-			RelationshipType: model.RelationshipType(strings.TrimSpace(m.editValues[fieldRelationType])),
-			ContactStyle: model.ContactStyle(strings.TrimSpace(m.editValues[fieldContactStyle])),
-			State:      strings.TrimSpace(m.editValues[fieldState]),
-			UpdatedAt:  now,
-		}
+		contact := parser.NewContact(name, m.contactsDir)
+		contact.Email = strings.TrimSpace(m.editValues[fieldEmail])
+		contact.Phone = strings.TrimSpace(m.editValues[fieldPhone])
+		contact.Company = strings.TrimSpace(m.editValues[fieldCompany])
+		contact.Role = strings.TrimSpace(m.editValues[fieldRole])
+		contact.Location = strings.TrimSpace(m.editValues[fieldLocation])
+		contact.RelationshipType = model.RelationshipType(strings.TrimSpace(m.editValues[fieldRelationType]))
+		contact.ContactStyle = model.ContactStyle(strings.TrimSpace(m.editValues[fieldContactStyle]))
+		contact.State = strings.TrimSpace(m.editValues[fieldState])
 		
 		// Parse and set tags
 		tagStr := strings.TrimSpace(m.editValues[fieldTags])
@@ -377,12 +363,8 @@ func (m Model) saveNewContact() tea.Cmd {
 			return errorMsg{err: fmt.Errorf("cannot access contacts directory '%s': %v", m.contactsDir, err)}
 		}
 		
-		// Generate Denote filename using the same timestamp as the identifier
-		nameSlug := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
-		nameSlug = strings.ReplaceAll(nameSlug, "'", "")
-		nameSlug = strings.ReplaceAll(nameSlug, ".", "")
-		filename := fmt.Sprintf("%s--%s__contact.md", dateStr, nameSlug)
-		contact.FilePath = filepath.Join(m.contactsDir, filename)
+		// Generate filename using acore conventions
+		contact.FilePath = parser.GenerateFilePath(m.contactsDir, contact)
 		
 		// Save the new contact
 		err := parser.SaveContactFile(contact)

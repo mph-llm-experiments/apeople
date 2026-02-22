@@ -2,6 +2,8 @@ package model
 
 import (
 	"time"
+
+	"github.com/mph-llm-experiments/acore"
 )
 
 // RelationshipType defines the type of relationship and default contact frequency
@@ -50,14 +52,13 @@ const (
 	InteractionNote    InteractionType = "note"
 )
 
-// Contact represents a contact record
+// Contact represents a contact record.
+// Embeds acore.Entity for common fields (id, title, index_id, type, tags,
+// created, modified, related_people, related_tasks, related_ideas, file_path).
 type Contact struct {
-	// Core fields from frontmatter
-	Title            string           `yaml:"title" json:"title"`
-	Date             time.Time        `yaml:"date" json:"date"`
-	Tags             []string         `yaml:"tags" json:"tags"`
-	Identifier       string           `yaml:"identifier" json:"identifier"`
-	IndexID          int              `yaml:"index_id,omitempty" json:"index_id"`
+	acore.Entity `yaml:",inline"`
+
+	// Domain-specific fields
 	Email            string           `yaml:"email,omitempty" json:"email,omitempty"`
 	Phone            string           `yaml:"phone,omitempty" json:"phone,omitempty"`
 	RelationshipType RelationshipType `yaml:"relationship_type" json:"relationship_type"`
@@ -67,7 +68,6 @@ type Contact struct {
 	LastContacted    *time.Time       `yaml:"last_contacted,omitempty" json:"last_contacted,omitempty"`
 	LastBumpDate     *time.Time       `yaml:"last_bump_date,omitempty" json:"last_bump_date,omitempty"`
 	BumpCount        int              `yaml:"bump_count,omitempty" json:"bump_count,omitempty"`
-	UpdatedAt        time.Time        `yaml:"updated_at" json:"updated_at"`
 
 	// Optional fields
 	Company              string   `yaml:"company,omitempty" json:"company,omitempty"`
@@ -82,16 +82,10 @@ type Contact struct {
 	LastInteractionType  string   `yaml:"last_interaction_type,omitempty" json:"last_interaction_type,omitempty"`
 	RelatedContactLabels []string `yaml:"related_contact_labels,omitempty" json:"related_contact_labels,omitempty"`
 
-	// Cross-app relationship fields (asystem connective tissue)
-	RelatedPeople []string `yaml:"related_people,omitempty" json:"related_people"`
-	RelatedTasks  []string `yaml:"related_tasks,omitempty" json:"related_tasks"`
-	RelatedIdeas  []string `yaml:"related_ideas,omitempty" json:"related_ideas"`
-
 	// Runtime/computed fields (not in YAML)
-	FilePath         string `yaml:"-" json:"file_path,omitempty"`
-	Content          string `yaml:"-" json:"-"`
-	DaysSince        int    `yaml:"-" json:"days_since_contact"`
-	OverdueStatus    string `yaml:"-" json:"overdue_status,omitempty"`
+	Content       string `yaml:"-" json:"-"`
+	DaysSince     int    `yaml:"-" json:"days_since_contact"`
+	OverdueStatus string `yaml:"-" json:"overdue_status,omitempty"`
 }
 
 // Interaction represents a single interaction with a contact
@@ -99,20 +93,6 @@ type Interaction struct {
 	Date    time.Time       `yaml:"date"`
 	Type    InteractionType `yaml:"type"`
 	Summary string          `yaml:"summary,omitempty"`
-}
-
-// EnsureRelationSlices initializes nil relation slices to empty slices
-// so JSON output shows [] instead of null.
-func (c *Contact) EnsureRelationSlices() {
-	if c.RelatedPeople == nil {
-		c.RelatedPeople = []string{}
-	}
-	if c.RelatedTasks == nil {
-		c.RelatedTasks = []string{}
-	}
-	if c.RelatedIdeas == nil {
-		c.RelatedIdeas = []string{}
-	}
 }
 
 // GetFrequencyDays returns the contact frequency in days
@@ -140,72 +120,56 @@ func (c *Contact) DaysSinceContact() int {
 	}
 	duration := time.Since(*c.LastContacted)
 	days := int(duration.Hours() / 24)
-	// Handle future dates (negative days)
 	if duration < 0 {
-		return days // Will be negative
+		return days
 	}
 	return days
 }
 
 // IsOverdue returns true if contact is overdue based on frequency
 func (c *Contact) IsOverdue() bool {
-	// Only check overdue for periodic style
 	if c.ContactStyle != StylePeriodic && c.ContactStyle != "" {
 		return false
 	}
-	
 	freq := c.GetFrequencyDays()
 	if freq == 0 {
-		return false // No frequency set
+		return false
 	}
-	
 	days := c.DaysSinceContact()
 	if days == -1 {
-		return true // Never contacted
+		return true
 	}
-	
 	return days > freq
 }
 
 // NeedsAttention returns true if contact needs attention soon
 func (c *Contact) NeedsAttention() bool {
-	// Only check for periodic style
 	if c.ContactStyle != StylePeriodic && c.ContactStyle != "" {
 		return false
 	}
-	
 	freq := c.GetFrequencyDays()
 	if freq == 0 {
 		return false
 	}
-	
 	days := c.DaysSinceContact()
 	if days == -1 {
 		return true
 	}
-	
-	// Needs attention if within 7 days of being overdue
-	return days > (freq - 7) && days <= freq
+	return days > (freq-7) && days <= freq
 }
 
 // IsWithinThreshold returns true if contact has been contacted within their expected frequency
 func (c *Contact) IsWithinThreshold() bool {
-	// Only check for periodic style
 	if c.ContactStyle != StylePeriodic && c.ContactStyle != "" {
 		return false
 	}
-	
 	freq := c.GetFrequencyDays()
 	if freq == 0 {
 		return false
 	}
-	
 	days := c.DaysSinceContact()
 	if days == -1 {
-		return false // Never contacted
+		return false
 	}
-	
-	// Within threshold if contacted recently enough (less than half the frequency)
-	// This gives a nice visual indicator for "good" contact rhythm
-	return days >= 0 && days <= (freq / 2)
+	return days >= 0 && days <= (freq/2)
 }

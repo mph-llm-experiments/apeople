@@ -49,7 +49,7 @@ func Run(cfg *config.Config, args []string) error {
 	root := &Command{
 		Name:  "apeople",
 		Usage: "apeople <command> [options]",
-		Description: `Agent-first contacts management using Denote file conventions.
+		Description: `Agent-first contacts management.
 
 Commands:
   list       List contacts
@@ -59,6 +59,7 @@ Commands:
   log        Log an interaction
   bump       Bump a contact (review without contacting)
   delete     Delete a contact
+  migrate    Migrate from Denote format to acore format
 
 Global Options:
   --config PATH  Use specific config file
@@ -76,6 +77,7 @@ Global Options:
 		logCommand(cfg),
 		bumpCommand(cfg),
 		deleteCommand(cfg),
+		migrateCommand(cfg),
 	)
 
 	return root.Execute(remaining)

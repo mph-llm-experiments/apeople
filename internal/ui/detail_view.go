@@ -3,9 +3,11 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mph-llm-experiments/acore"
 	"github.com/mph-llm-experiments/apeople/internal/model"
 )
 
@@ -101,6 +103,14 @@ func (m Model) viewDetail() string {
 	b.WriteString(m.renderRelationshipInfo(contact))
 	b.WriteString("\n")
 	
+	// Related entities
+	if relSection := m.renderRelatedEntities(contact); relSection != "" {
+		b.WriteString(sectionStyle.Render("Related"))
+		b.WriteString("\n")
+		b.WriteString(relSection)
+		b.WriteString("\n")
+	}
+
 	// Contact History
 	b.WriteString(sectionStyle.Render("Contact History"))
 	b.WriteString("\n")
@@ -283,11 +293,17 @@ func (m Model) renderContactHistory(contact model.Contact) string {
 	}
 	
 	// Created
-	lines = append(lines, m.renderField("Created", contact.Date.Format("January 2, 2006")))
-	
+	if contact.Created != "" {
+		if t, err := time.Parse(time.RFC3339, contact.Created); err == nil {
+			lines = append(lines, m.renderField("Created", t.Format("January 2, 2006")))
+		}
+	}
+
 	// Updated
-	if !contact.UpdatedAt.IsZero() {
-		lines = append(lines, m.renderField("Updated", contact.UpdatedAt.Format("January 2, 2006")))
+	if contact.Modified != "" {
+		if t, err := time.Parse(time.RFC3339, contact.Modified); err == nil {
+			lines = append(lines, m.renderField("Updated", t.Format("January 2, 2006")))
+		}
 	}
 	
 	return strings.Join(lines, "\n")
@@ -295,7 +311,7 @@ func (m Model) renderContactHistory(contact model.Contact) string {
 
 // renderContactContent renders the markdown content
 func (m Model) renderContactContent(contact model.Contact) string {
-	content := strings.TrimSpace(contact.Content)
+	content := strings.TrimSpace(acore.StripLinksBlock(contact.Content))
 	if content == "" {
 		return emptyStyle.Render("No interaction history")
 	}
@@ -316,6 +332,31 @@ func (m Model) renderField(label, value string) string {
 	return fmt.Sprintf("  %s: %s", 
 		labelStyle.Render(fmt.Sprintf("%-15s", label)),
 		valueStyle.Render(value))
+}
+
+// renderRelatedEntities resolves and renders cross-app relations
+func (m Model) renderRelatedEntities(contact model.Contact) string {
+	cfg, err := acore.LoadConfig()
+	if err != nil {
+		return ""
+	}
+
+	people, tasks, ideas := acore.ResolveRelations(cfg, &contact.Entity)
+	if len(people) == 0 && len(tasks) == 0 && len(ideas) == 0 {
+		return ""
+	}
+
+	var lines []string
+	if len(people) > 0 {
+		lines = append(lines, m.renderField("People", strings.Join(people, ", ")))
+	}
+	if len(tasks) > 0 {
+		lines = append(lines, m.renderField("Tasks", strings.Join(tasks, ", ")))
+	}
+	if len(ideas) > 0 {
+		lines = append(lines, m.renderField("Ideas", strings.Join(ideas, ", ")))
+	}
+	return strings.Join(lines, "\n")
 }
 
 // renderDetailFooter renders the footer with available actions

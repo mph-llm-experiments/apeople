@@ -3,263 +3,136 @@ name: apeople
 description: Agent-first contacts management using the apeople CLI. Use when managing contacts, logging interactions, reviewing overdue contacts, or organizing relationship data. NOT for tasks (use atask) or ideas (use anote).
 ---
 
-# apeople — Agent-First Contacts Management
+# apeople -- Contacts Management
 
-Manage contacts using the apeople CLI tool. Contacts are people you want to keep in touch with, organized by relationship type and contact frequency. This is a sibling tool to atask (tasks) and anote (ideas).
+Manage contacts using the apeople CLI. Contacts are people you want to keep in touch with, organized by relationship type and contact frequency. Sibling tools: atask (tasks) and anote (ideas).
 
-## When to Use apeople vs atask vs anote
+All data is stored as plain markdown files with YAML frontmatter. Filename format: `{ulid}--{slug}__contact.md`
 
-| Use apeople when... | Use atask when... | Use anote when... |
-|---|---|---|
-| Managing contact information | Creating actionable work items | Capturing ideas |
-| Logging interactions with people | Tracking task completion | Exploring concepts |
-| Reviewing overdue contacts | Managing project deliverables | Managing idea maturity |
-| Organizing relationships | Setting deadlines | Connecting related ideas |
+## Commands
 
-## Quick Decision Tree for Agents
-
-```
-├─ 📖 READ/FIND CONTACTS
-│  ├─ List all? → apeople list --json
-│  ├─ Filter by type? → apeople list --type close --json
-│  ├─ Find overdue? → apeople list --overdue --json
-│  ├─ Search? → apeople list --search "term" --json
-│  └─ Show one? → apeople show <id> --json
-│
-├─ ✏️ CREATE CONTACTS
-│  └─ New contact → apeople new "Name" --type <type> [--options]
-│
-├─ 🔄 UPDATE CONTACTS
-│  ├─ Update fields → apeople update <id> --email new@example.com
-│  ├─ Log interaction → apeople log <id> --interaction email
-│  └─ Bump (review) → apeople bump <id>
-│
-└─ 🗑️ DELETE
-   └─ Delete → apeople delete <id> --confirm
-```
-
-**Golden Rule:** If the output will be processed → add `--json` to the command!
-
-## Command Reference
-
-### List Contacts
+### list -- List contacts
 
 ```bash
-apeople list --json                              # All contacts (JSON)
-apeople list --type close --json                  # Filter by relationship type
-apeople list --overdue --json                     # Only overdue contacts
-apeople list --state followup --json              # Filter by state
-apeople list --style periodic --json              # Filter by contact style
-apeople list --search "portland" --json           # Search name/company/email/tags
-apeople list --sort days --json                   # Sort by days since contact
-apeople list --all --json                         # Include archived contacts
+apeople list [options] --json
 ```
 
-**Filter options:**
-- `--type`: close, family, network, work, social, providers, recruiters
-- `--state`: ok, active, followup, ping, archived
-- `--style`: periodic, ambient, triggered
-- `--sort`: name (default), days, type, state
+Default: excludes archived contacts.
 
-### Show Contact
+Options:
+- `--all` -- Include archived contacts
+- `--overdue` -- Show only overdue contacts
+- `--type` -- Filter by relationship type: close, family, network, work, social, providers, recruiters
+- `--state` -- Filter by state: ok, active, followup, ping, archived
+- `--style` -- Filter by contact style: periodic, ambient, triggered
+- `--search` -- Search by name, company, email, or tags
+- `--sort` -- Sort by: name (default), days, type, state
+
+### show -- Show contact details
 
 ```bash
-apeople show 1 --json          # By index_id (preferred)
-apeople show 20240715T093045   # By denote identifier
+apeople show <index_id_or_ulid> --json
 ```
 
-### Create Contact
+Accepts index_id (numeric) or ULID.
+
+### new -- Create a contact
 
 ```bash
-apeople new "Sarah Chen" --type close --email sarah@example.com --company "Acme Corp"
-apeople new "John Smith" --type work --tags "portland,tech" --style periodic
+apeople new "Name" [options]
 ```
 
-**Options:**
-- `--type`: Relationship type (default: network)
-- `--style`: Contact style (default: periodic)
+Options:
+- `--type` -- Relationship type (default: network)
+- `--style` -- Contact style (default: periodic)
+- `--state` -- Initial state (default: ok)
 - `--email`, `--phone`, `--company`, `--role`, `--location`
-- `--tags`: Comma-separated tags (in addition to 'contact')
-- `--state`: Initial state (default: ok)
+- `--tags` -- Comma-separated tags (in addition to 'contact')
 
-### Update Contact
-
-```bash
-apeople update 1 --email new@example.com
-apeople update 1 --type close --state followup
-apeople update 1 --add-tag portland              # Add a tag (preserves existing)
-apeople update 1 --remove-tag portland           # Remove a tag
-apeople update 1 --tags "tech,portland,friend"   # Replace all non-contact tags (use with care)
-```
-
-### Cross-App Relationships
-
-Link contacts to tasks (atask), ideas (anote), or other contacts (apeople) using Denote IDs:
+### update -- Update contact fields
 
 ```bash
-# Add relationships
-apeople update 1 --add-task 20250610T141230
-apeople update 1 --add-idea 20250607T093045
-apeople update 1 --add-person 20250612T080000
-
-# Remove relationships
-apeople update 1 --remove-task 20250610T141230
-apeople update 1 --remove-idea 20250607T093045
-apeople update 1 --remove-person 20250612T080000
+apeople update <id> [options]
 ```
 
-Relationships are stored in YAML frontmatter as arrays of Denote IDs:
-- `related_people` — linked contacts
-- `related_tasks` — linked tasks/projects from atask
-- `related_ideas` — linked ideas from anote
+Options:
+- `--name` -- Update name
+- `--email`, `--phone`, `--company`, `--role`, `--location`
+- `--type` -- Update relationship type
+- `--state` -- Update state
+- `--style` -- Update contact style
+- `--tags` -- Replace all non-contact tags (comma-separated)
+- `--add-tag <tag>` -- Add a tag (preserves existing)
+- `--remove-tag <tag>` -- Remove a tag
 
-Relationships are NOT automatically bidirectional. To link both directions, update both entities.
+Cross-app relationship flags (values are ULIDs):
+- `--add-person <ulid>` / `--remove-person <ulid>`
+- `--add-task <ulid>` / `--remove-task <ulid>`
+- `--add-idea <ulid>` / `--remove-idea <ulid>`
 
-### Log Interaction
+### log -- Log an interaction
 
 ```bash
-apeople log 1 --interaction email                           # Log email contact
-apeople log 1 --interaction call --state followup           # Log + change state
-apeople log 1 --interaction meeting --note "Quarterly sync" # Log with note
+apeople log <id> --interaction <type> [--note "text"] [--state <new-state>]
 ```
 
-**Interaction types:** email, call, text, meeting, social, bump, note
+Interaction types: email, call, text, meeting, social, bump, note
 
-### Bump Contact
+Updates `last_contacted` in frontmatter. Appends to an `## Interaction Log` section in the file body (most recent first).
+
+### bump -- Review without contacting
 
 ```bash
-apeople bump 1    # Review without actually contacting
+apeople bump <id>
 ```
 
-A bump updates `last_bump_date` but NOT `last_contacted`. Use for reviewing a contact's info without reaching out.
+Updates `last_bump_date` but NOT `last_contacted`. Use for reviewing a contact's info without reaching out.
 
-### Delete Contact
+### delete -- Delete a contact
 
 ```bash
-apeople delete 1 --confirm    # --confirm is required
+apeople delete <id> --confirm
 ```
 
-## JSON Output Structure
+`--confirm` is required.
 
-### Contact Object
+## JSON Structure
 
 ```json
 {
+  "id": "01KJ1KHY3XGRPSBE9ZKJYDDKVT",
   "title": "Sarah Chen",
-  "date": "2024-07-15T09:30:45Z",
-  "tags": ["contact", "tech", "portland"],
-  "identifier": "20240715T093045",
   "index_id": 1,
+  "type": "contact",
+  "tags": ["contact", "tech"],
+  "created": "2026-01-31T10:05:26Z",
+  "modified": "2026-02-22T02:41:14Z",
+  "related_people": [],
+  "related_tasks": ["01KJ1KJ3VFJFNDH5K6VEDS2G6G"],
+  "related_ideas": [],
+  "file_path": "/path/to/01KJ1KHY3X...--sarah-chen__contact.md",
   "email": "sarah@example.com",
   "phone": "555-0123",
   "relationship_type": "close",
   "state": "ok",
+  "label": "@sarahc",
   "contact_style": "periodic",
-  "last_contacted": "2024-08-01T10:00:00Z",
-  "last_bump_date": "2024-08-10T14:00:00Z",
+  "last_contacted": "2026-02-01T10:00:00Z",
+  "last_bump_date": "2026-02-10T14:00:00Z",
   "bump_count": 2,
-  "updated_at": "2024-08-10T14:00:00Z",
   "company": "Acme Corp",
-  "role": "Senior Engineer",
-  "location": "Portland, OR",
-  "related_people": [],
-  "related_tasks": ["20250610T141230"],
-  "related_ideas": [],
-  "file_path": "/path/to/20240715T093045--sarah-chen__contact.md",
-  "days_since_contact": 14,
-  "overdue_status": "good"
+  "days_since_contact": 14
 }
 ```
 
-### Key Fields for Agents
+Key fields:
+- `id` -- ULID, the canonical identifier
+- `index_id` -- stable numeric ID for CLI commands
+- `label` -- short handle (e.g. `@sarahc`)
+- `days_since_contact` -- -1 if never contacted, otherwise days since last contact
+- `related_people`, `related_tasks`, `related_ideas` -- arrays of ULIDs (always `[]`, never null)
 
-- `index_id`: Stable numeric ID for CLI commands (preferred for referencing)
-- `identifier`: Denote timestamp ID (also works for referencing)
-- `days_since_contact`: -1 if never contacted, otherwise days since last contact
-- `overdue_status`: "overdue", "attention", "good", or empty
-- `related_people`, `related_tasks`, `related_ideas`: Arrays of Denote IDs linking to other entities (always `[]`, never null)
-
-## Global Options
-
-```bash
---json         # JSON output (always use for programmatic access)
---dir PATH     # Override contacts directory
---config PATH  # Use specific config file
---quiet, -q    # Minimal output
---no-color     # Disable color output
-```
-
-## Agent Workflow Patterns
-
-### Contact Review Workflow
-
-```bash
-# 1. Find overdue contacts
-apeople list --overdue --json
-
-# 2. Review each overdue contact
-apeople show <id> --json
-
-# 3. Either log an interaction or bump
-apeople log <id> --interaction email --note "Checked in"
-# or
-apeople bump <id>
-```
-
-### Finding Contacts That Need Attention
-
-```bash
-# Overdue periodic contacts
-apeople list --overdue --style periodic --json
-
-# Contacts in followup state
-apeople list --state followup --json
-
-# Search for someone
-apeople list --search "acme" --json
-```
-
-### Cross-App Workflow: Log Interaction and Create Follow-Up Task
-
-```bash
-# 1. Log the interaction
-apeople log 5 --interaction call --note "Discussed proposal timeline"
-
-# 2. Create a follow-up task in atask
-atask new "Follow up on Sarah's proposal" --due "next friday" --json
-# Note the denote_id from the output
-
-# 3. Link the contact to the task (both directions)
-apeople update 5 --add-task <task-denote-id>
-atask update <task-index-id> --add-person 20240715T093045
-```
-
-### Cross-App Workflow: Find Everything Related to a Person
-
-```bash
-# 1. Get the contact's relationships
-apeople show 5 --json | jq '{tasks: .related_tasks, ideas: .related_ideas}'
-
-# 2. Look up each linked task
-atask list --json | jq '[.tasks[] | select(.denote_id == "20250610T141230")]'
-
-# 3. Look up each linked idea
-anote --json list | jq '[.[] | select(.denote_id == "20250607T093045")]'
-```
-
-### Creating a Contact from Conversation
-
-```bash
-apeople new "Jane Doe" \
-  --type work \
-  --email jane@company.com \
-  --company "Company Inc" \
-  --role "VP Engineering" \
-  --tags "portland,hiring" \
-  --location "Portland, OR"
-```
-
-## Contact Types & Frequencies
+## Contact Types and Frequencies
 
 | Type | Default Frequency | Description |
 |------|-------------------|-------------|
@@ -277,29 +150,58 @@ apeople new "Jane Doe" \
 - **ambient**: Passive monitoring, no active reminders
 - **triggered**: Event-based contact only
 
-## Interaction Log Format
+## Contact States
 
-The `log` command appends entries to an `## Interaction Log` section in the contact's markdown content. The format is:
+ok, active, followup, ping, archived
 
-```markdown
-## Interaction Log
+## Agent Workflows
 
-- **2026-02-18** (email) - Discussed project timeline
-- **2026-02-15** (call)
-- **2026-01-20** (meeting) - Quarterly sync
+### Contact review
+
+```bash
+apeople list --overdue --json
+apeople show <id> --json
+apeople log <id> --interaction email --note "Checked in"
+# or just review without contacting:
+apeople bump <id>
 ```
 
-- Most recent entries appear first
-- The `--note` text appears after the interaction type, separated by ` - `
-- If no note is provided, only the date and type are recorded
-- If no `## Interaction Log` section exists, one is created automatically
-- The `log` command also updates `last_contacted` and `last_interaction_type` in frontmatter
+### Cross-app: log interaction and create follow-up task
 
-## Best Practices
+```bash
+apeople log 5 --interaction call --note "Discussed proposal timeline"
+atask new "Follow up on Sarah's proposal" --due "next friday" --json
+# Parse id (ULID) from atask output, then link both directions:
+apeople update 5 --add-task <task-ulid>
+atask update <task-index-id> --add-person <contact-ulid>
+```
 
-1. Always use `--json` when processing output programmatically
-2. Use `index_id` (numeric) to reference contacts in commands
-3. Log interactions to keep contact timelines accurate
-4. Use `bump` for reviewing contacts without actual outreach
-5. Set `contact_style: ambient` for contacts that don't need regular check-ins
-6. Use tags for grouping (e.g., `#portland`, `#conference`, `#client`)
+### Find everything related to a person
+
+```bash
+apeople show 5 --json
+# Parse related_tasks and related_ideas arrays, then look up each:
+atask show <ulid> --json
+anote show <ulid> --json
+```
+
+## Configuration
+
+Config: `~/.config/acore/config.toml`
+
+```toml
+[directories]
+apeople = "/path/to/contacts"
+```
+
+Override with `--dir` flag. Also supports `--config` for alternate config file.
+
+## Global Options
+
+```
+--json         JSON output (always use for programmatic access)
+--dir PATH     Override contacts directory
+--config PATH  Use specific config file
+--quiet, -q    Minimal output
+--no-color     Disable color output
+```

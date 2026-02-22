@@ -5,11 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/mph-llm-experiments/acore"
 	"github.com/mph-llm-experiments/apeople/internal/config"
 	"github.com/mph-llm-experiments/apeople/internal/model"
 	"github.com/mph-llm-experiments/apeople/internal/parser"
@@ -166,7 +166,7 @@ func showCommand(cfg *config.Config) *Command {
 	return &Command{
 		Name:        "show",
 		Usage:       "apeople show <id>",
-		Description: "Show contact details by index_id or denote identifier",
+		Description: "Show contact details by index_id or ULID",
 		Run: func(cmd *Command, args []string) error {
 			if len(args) == 0 {
 				return fmt.Errorf("usage: apeople show <id>")
@@ -251,8 +251,13 @@ func showCommand(cfg *config.Config) *Command {
 			if contact.LastBumpDate != nil {
 				fmt.Printf("  Last bump:      %s (count: %d)\n", contact.LastBumpDate.Format("2006-01-02"), contact.BumpCount)
 			}
-			fmt.Printf("  Created:        %s\n", contact.Date.Format("2006-01-02"))
-			fmt.Printf("  Updated:        %s\n", contact.UpdatedAt.Format("2006-01-02"))
+
+			if contact.Created != "" {
+				fmt.Printf("  Created:        %s\n", formatDate(contact.Created))
+			}
+			if contact.Modified != "" {
+				fmt.Printf("  Updated:        %s\n", formatDate(contact.Modified))
+			}
 
 			var tagStrs []string
 			for _, t := range contact.Tags {
@@ -309,8 +314,9 @@ func newCommand(cfg *config.Config) *Command {
 			}
 
 			name := strings.Join(args, " ")
-			now := time.Now()
-			dateStr := now.Format("20060102T150405")
+
+			// Create contact with acore identity
+			contact := parser.NewContact(name, cfg.ContactsDirectory)
 
 			// Build tags
 			contactTags := []string{"contact"}
@@ -322,47 +328,37 @@ func newCommand(cfg *config.Config) *Command {
 					}
 				}
 			}
+			contact.Tags = contactTags
 
-			contact := model.Contact{
-				Title:            name,
-				Date:             now,
-				Identifier:       dateStr,
-				Tags:             contactTags,
-				RelationshipType: model.RelationshipType(*relType),
-				ContactStyle:     model.ContactStyle(*style),
-				State:            *state,
-				Email:            *email,
-				Phone:            *phone,
-				Company:          *company,
-				Role:             *role,
-				Location:         *location,
-				UpdatedAt:        now,
-			}
+			// Set domain fields
+			contact.RelationshipType = model.RelationshipType(*relType)
+			contact.ContactStyle = model.ContactStyle(*style)
+			contact.State = *state
+			contact.Email = *email
+			contact.Phone = *phone
+			contact.Company = *company
+			contact.Role = *role
+			contact.Location = *location
 
 			// Get index_id
-			counter, err := parser.GetIDCounter(cfg.ContactsDirectory)
+			counter, err := acore.NewIndexCounter(cfg.ContactsDirectory, "apeople")
 			if err != nil {
 				return fmt.Errorf("failed to get ID counter: %w", err)
 			}
-			id, err := counter.NextID()
+			id, err := counter.Next()
 			if err != nil {
 				return fmt.Errorf("failed to get next ID: %w", err)
 			}
 			contact.IndexID = id
 
-			// Generate filename and filepath
-			nameSlug := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
-			nameSlug = strings.ReplaceAll(nameSlug, "'", "")
-			nameSlug = strings.ReplaceAll(nameSlug, ".", "")
-			filename := fmt.Sprintf("%s--%s__contact.md", dateStr, sanitizeSlug(nameSlug))
-			contact.FilePath = filepath.Join(cfg.ContactsDirectory, filename)
+			// Generate file path
+			contact.FilePath = parser.GenerateFilePath(cfg.ContactsDirectory, contact)
 
 			if err := parser.SaveContactFile(contact); err != nil {
 				return fmt.Errorf("failed to create contact: %w", err)
 			}
 
 			if globalFlags.JSON {
-				// Reload to get saved state
 				saved, err := parser.ParseContactFile(contact.FilePath)
 				if err != nil {
 					return fmt.Errorf("created but failed to reload: %w", err)
@@ -397,12 +393,12 @@ func updateCommand(cfg *config.Config) *Command {
 	location := fs.String("location", "", "Update location")
 
 	// Cross-app relationship flags
-	addPerson := fs.String("add-person", "", "Add related contact (Denote ID)")
-	removePerson := fs.String("remove-person", "", "Remove related contact (Denote ID)")
-	addTask := fs.String("add-task", "", "Add related task (Denote ID)")
-	removeTask := fs.String("remove-task", "", "Remove related task (Denote ID)")
-	addIdea := fs.String("add-idea", "", "Add related idea (Denote ID)")
-	removeIdea := fs.String("remove-idea", "", "Remove related idea (Denote ID)")
+	addPerson := fs.String("add-person", "", "Add related contact (ULID)")
+	removePerson := fs.String("remove-person", "", "Remove related contact (ULID)")
+	addTask := fs.String("add-task", "", "Add related task (ULID)")
+	removeTask := fs.String("remove-task", "", "Remove related task (ULID)")
+	addIdea := fs.String("add-idea", "", "Add related idea (ULID)")
+	removeIdea := fs.String("remove-idea", "", "Remove related idea (ULID)")
 
 	return &Command{
 		Name:        "update",
@@ -469,34 +465,40 @@ func updateCommand(cfg *config.Config) *Command {
 			if *addTag != "" {
 				tag := strings.TrimSpace(*addTag)
 				if tag != "" && tag != "contact" {
-					contact.Tags = addToSlice(contact.Tags, tag)
+					acore.AddRelation(&contact.Tags, tag)
 				}
 			}
 			if *removeTag != "" {
 				tag := strings.TrimSpace(*removeTag)
 				if tag != "contact" {
-					contact.Tags = removeFromSlice(contact.Tags, tag)
+					acore.RemoveRelation(&contact.Tags, tag)
 				}
 			}
 
 			// Apply cross-app relationship updates
 			if *addPerson != "" {
-				contact.RelatedPeople = addToSlice(contact.RelatedPeople, *addPerson)
+				acore.AddRelation(&contact.RelatedPeople, *addPerson)
+				acore.SyncRelation(contact.Type, contact.ID, *addPerson)
 			}
 			if *removePerson != "" {
-				contact.RelatedPeople = removeFromSlice(contact.RelatedPeople, *removePerson)
+				acore.RemoveRelation(&contact.RelatedPeople, *removePerson)
+				acore.UnsyncRelation(contact.Type, contact.ID, *removePerson)
 			}
 			if *addTask != "" {
-				contact.RelatedTasks = addToSlice(contact.RelatedTasks, *addTask)
+				acore.AddRelation(&contact.RelatedTasks, *addTask)
+				acore.SyncRelation(contact.Type, contact.ID, *addTask)
 			}
 			if *removeTask != "" {
-				contact.RelatedTasks = removeFromSlice(contact.RelatedTasks, *removeTask)
+				acore.RemoveRelation(&contact.RelatedTasks, *removeTask)
+				acore.UnsyncRelation(contact.Type, contact.ID, *removeTask)
 			}
 			if *addIdea != "" {
-				contact.RelatedIdeas = addToSlice(contact.RelatedIdeas, *addIdea)
+				acore.AddRelation(&contact.RelatedIdeas, *addIdea)
+				acore.SyncRelation(contact.Type, contact.ID, *addIdea)
 			}
 			if *removeIdea != "" {
-				contact.RelatedIdeas = removeFromSlice(contact.RelatedIdeas, *removeIdea)
+				acore.RemoveRelation(&contact.RelatedIdeas, *removeIdea)
+				acore.UnsyncRelation(contact.Type, contact.ID, *removeIdea)
 			}
 
 			if err := parser.SaveContactFile(*contact); err != nil {
@@ -588,7 +590,7 @@ func logCommand(cfg *config.Config) *Command {
 			if !globalFlags.Quiet {
 				msg := fmt.Sprintf("Logged %s interaction with %s (#%d)", *interaction, contact.Title, contact.IndexID)
 				if *state != "" {
-					msg += fmt.Sprintf(" [state → %s]", *state)
+					msg += fmt.Sprintf(" [state -> %s]", *state)
 				}
 				fmt.Println(msg)
 			}
@@ -704,34 +706,90 @@ func deleteCommand(cfg *config.Config) *Command {
 	}
 }
 
-// addToSlice appends a value to a slice if not already present
-func addToSlice(slice []string, val string) []string {
-	for _, v := range slice {
-		if v == val {
-			return slice
-		}
+func migrateCommand(cfg *config.Config) *Command {
+	fs := flag.NewFlagSet("migrate", flag.ContinueOnError)
+	applyMap := fs.String("apply-map", "", "Apply a migration map from another app")
+
+	return &Command{
+		Name:        "migrate",
+		Usage:       "apeople migrate [--apply-map <path>]",
+		Description: "Migrate contacts from Denote format to acore format",
+		Flags:       fs,
+		Run: func(cmd *Command, args []string) error {
+			if *applyMap != "" {
+				// Apply external mapping
+				migMap, err := acore.ReadMigrationMap(*applyMap)
+				if err != nil {
+					return fmt.Errorf("failed to read migration map: %w", err)
+				}
+
+				if err := acore.ApplyMappings(cfg.ContactsDirectory, migMap.Mappings); err != nil {
+					return fmt.Errorf("failed to apply mappings: %w", err)
+				}
+
+				if !globalFlags.Quiet {
+					fmt.Printf("Applied %d mappings from %s\n", len(migMap.Mappings), migMap.App)
+				}
+				return nil
+			}
+
+			// Migrate this app's files
+			migMap, err := acore.MigrateDirectory(cfg.ContactsDirectory, "contact", "apeople")
+			if err != nil {
+				return fmt.Errorf("migration failed: %w", err)
+			}
+
+			if len(migMap.Mappings) == 0 {
+				if !globalFlags.Quiet {
+					fmt.Println("No files to migrate.")
+				}
+				return nil
+			}
+
+			// Initialize the index counter from migrated files
+			counter, err := acore.NewIndexCounter(cfg.ContactsDirectory, "apeople")
+			if err != nil {
+				return fmt.Errorf("failed to create counter: %w", err)
+			}
+			readIndexID := func(path string) (int, error) {
+				var entity struct {
+					acore.Entity `yaml:",inline"`
+				}
+				if _, err := acore.ReadFile(path, &entity); err != nil {
+					return 0, err
+				}
+				return entity.IndexID, nil
+			}
+			if err := counter.InitFromFiles("contact", readIndexID); err != nil {
+				return fmt.Errorf("counter init: %w", err)
+			}
+
+			// Write mapping file
+			mapPath := cfg.ContactsDirectory + "/migration-map.json"
+			if err := acore.WriteMigrationMap(mapPath, migMap); err != nil {
+				return fmt.Errorf("failed to write migration map: %w", err)
+			}
+
+			if globalFlags.JSON {
+				data, _ := json.MarshalIndent(migMap, "", "  ")
+				fmt.Println(string(data))
+				return nil
+			}
+
+			if !globalFlags.Quiet {
+				fmt.Printf("Migrated %d contacts. Mapping saved to %s\n", len(migMap.Mappings), mapPath)
+				fmt.Println("Run 'atask migrate --apply-map " + mapPath + "' and 'anote migrate --apply-map " + mapPath + "' to update cross-references.")
+			}
+			return nil
+		},
 	}
-	return append(slice, val)
 }
 
-// removeFromSlice removes a value from a slice
-func removeFromSlice(slice []string, val string) []string {
-	result := make([]string, 0, len(slice))
-	for _, v := range slice {
-		if v != val {
-			result = append(result, v)
-		}
+// formatDate formats an RFC 3339 timestamp string as YYYY-MM-DD for display.
+func formatDate(rfc3339 string) string {
+	t, err := time.Parse(time.RFC3339, rfc3339)
+	if err != nil {
+		return rfc3339
 	}
-	return result
-}
-
-// sanitizeSlug removes special characters from a filename slug
-func sanitizeSlug(name string) string {
-	var result strings.Builder
-	for _, ch := range name {
-		if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '-' {
-			result.WriteRune(ch)
-		}
-	}
-	return result.String()
+	return t.Format("2006-01-02")
 }
