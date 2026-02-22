@@ -23,7 +23,8 @@ Options:
 - `--all` -- Include archived contacts
 - `--overdue` -- Show only overdue contacts
 - `--type` -- Filter by relationship type: close, family, network, work, social, providers, recruiters
-- `--state` -- Filter by state: ok, active, followup, ping, archived
+- `--state` -- Filter by state: ok, ping, followup, waiting, sked, archived
+- `--engaged` -- Show contacts in any engagement state (not ok, not archived)
 - `--style` -- Filter by contact style: periodic, ambient, triggered
 - `--search` -- Search by name, company, email, or tags
 - `--sort` -- Sort by: name (default), days, type, state
@@ -152,7 +153,16 @@ Key fields:
 
 ## Contact States
 
-ok, active, followup, ping, archived
+| State | Meaning |
+|-------|---------|
+| ok | At rest, no action needed |
+| ping | I want to reach out (light touch) |
+| followup | I owe them a response or action |
+| waiting | Ball's in their court |
+| sked | We're scheduling something |
+| archived | Inactive/dormant |
+
+Use `--engaged` to list all contacts not at rest (everything except ok and archived).
 
 ## Agent Workflows
 

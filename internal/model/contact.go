@@ -32,11 +32,12 @@ const (
 type ContactState string
 
 const (
-	StateActive   ContactState = "active"
-	StateFollowup ContactState = "followup"
-	StatePing     ContactState = "ping"
-	StateArchived ContactState = "archived"
-	StateOk       ContactState = "ok"
+	StateOk       ContactState = "ok"       // At rest, no action needed
+	StatePing     ContactState = "ping"     // I want to reach out
+	StateFollowup ContactState = "followup" // I owe them a response or action
+	StateWaiting  ContactState = "waiting"  // Ball's in their court
+	StateSked     ContactState = "sked"     // Scheduling something
+	StateArchived ContactState = "archived" // Inactive/dormant
 )
 
 // InteractionType represents types of interactions

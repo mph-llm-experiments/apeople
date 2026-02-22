@@ -18,10 +18,12 @@ import (
 func listCommand(cfg *config.Config) *Command {
 	fs := flag.NewFlagSet("list", flag.ContinueOnError)
 	relType := fs.String("type", "", "Filter by relationship type (close, family, network, work, social, providers, recruiters)")
-	state := fs.String("state", "", "Filter by state (ok, followup, ping, active, archived)")
+	state := fs.String("state", "", "Filter by state (ok, ping, followup, waiting, sked, archived)")
 	style := fs.String("style", "", "Filter by contact style (periodic, ambient, triggered)")
 	overdue := fs.Bool("overdue", false, "Show only overdue contacts")
+	engaged := fs.Bool("engaged", false, "Show contacts in any engagement state (not ok, not archived)")
 	search := fs.String("search", "", "Search contacts by name, company, email, or tags")
+	plannedFor := fs.String("planned-for", "", "Filter by planned_for date (today, YYYY-MM-DD, or any)")
 	all := fs.Bool("all", false, "Show all contacts including archived")
 	sortBy := fs.String("sort", "name", "Sort by: name, days, type, state")
 
@@ -53,6 +55,9 @@ func listCommand(cfg *config.Config) *Command {
 				if *state != "" && c.State != *state {
 					continue
 				}
+				if *engaged && (c.State == "" || c.State == "ok" || c.State == "archived") {
+					continue
+				}
 				if *style != "" && string(c.ContactStyle) != *style {
 					continue
 				}
@@ -75,6 +80,22 @@ func listCommand(cfg *config.Config) *Command {
 					}
 					if !match {
 						continue
+					}
+				}
+				if *plannedFor != "" {
+					switch strings.ToLower(*plannedFor) {
+					case "any":
+						if c.PlannedFor == "" {
+							continue
+						}
+					case "today":
+						if c.PlannedFor != time.Now().Format("2006-01-02") {
+							continue
+						}
+					default:
+						if c.PlannedFor != *plannedFor {
+							continue
+						}
 					}
 				}
 				filtered = append(filtered, c)
@@ -305,7 +326,7 @@ func newCommand(cfg *config.Config) *Command {
 	company := fs.String("company", "", "Company name")
 	role := fs.String("role", "", "Role/title")
 	tags := fs.String("tags", "", "Comma-separated tags (in addition to 'contact')")
-	state := fs.String("state", "ok", "Contact state (ok, active, followup, ping, archived)")
+	state := fs.String("state", "ok", "Contact state (ok, ping, followup, waiting, sked, archived)")
 	location := fs.String("location", "", "Location")
 
 	return &Command{
@@ -397,6 +418,8 @@ func updateCommand(cfg *config.Config) *Command {
 	state := fs.String("state", "", "Update state")
 	location := fs.String("location", "", "Update location")
 
+	planFor := fs.String("plan-for", "", "Set planned_for date (natural language, YYYY-MM-DD, or 'none' to clear)")
+
 	// Cross-app relationship flags
 	addPerson := fs.String("add-person", "", "Add related contact (ULID)")
 	removePerson := fs.String("remove-person", "", "Remove related contact (ULID)")
@@ -477,6 +500,18 @@ func updateCommand(cfg *config.Config) *Command {
 				tag := strings.TrimSpace(*removeTag)
 				if tag != "contact" {
 					acore.RemoveRelation(&contact.Tags, tag)
+				}
+			}
+
+			if *planFor != "" {
+				if strings.ToLower(*planFor) == "none" {
+					contact.PlannedFor = ""
+				} else {
+					parsed, err := acore.ParseNaturalDate(*planFor)
+					if err != nil {
+						return fmt.Errorf("invalid --plan-for date: %v", err)
+					}
+					contact.PlannedFor = parsed
 				}
 			}
 
