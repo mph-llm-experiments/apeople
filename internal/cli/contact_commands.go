@@ -187,7 +187,12 @@ func showCommand(cfg *config.Config) *Command {
 			}
 
 			if globalFlags.JSON {
-				data, err := json.MarshalIndent(contact, "", "  ")
+				type contactWithContent struct {
+					*model.Contact
+					Content string `json:"content,omitempty"`
+				}
+				out := contactWithContent{Contact: contact, Content: strings.TrimSpace(contact.Content)}
+				data, err := json.MarshalIndent(out, "", "  ")
 				if err != nil {
 					return fmt.Errorf("failed to marshal JSON: %w", err)
 				}
