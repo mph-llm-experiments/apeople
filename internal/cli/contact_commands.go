@@ -22,6 +22,7 @@ func listCommand(cfg *config.Config) *Command {
 	style := fs.String("style", "", "Filter by contact style (periodic, ambient, triggered)")
 	overdue := fs.Bool("overdue", false, "Show only overdue contacts")
 	engaged := fs.Bool("engaged", false, "Show contacts in any engagement state (not ok, not archived)")
+	tag := fs.String("tag", "", "Filter by tag")
 	search := fs.String("search", "", "Search contacts by name, company, email, or tags")
 	plannedFor := fs.String("planned-for", "", "Filter by planned_for date (today, YYYY-MM-DD, or any)")
 	all := fs.Bool("all", false, "Show all contacts including archived")
@@ -64,7 +65,10 @@ func listCommand(cfg *config.Config) *Command {
 				if *overdue && !c.IsOverdue() {
 					continue
 				}
-				if *search != "" {
+				if *tag != "" && !c.HasTag(*tag) {
+				continue
+			}
+			if *search != "" {
 					query := strings.ToLower(*search)
 					match := strings.Contains(strings.ToLower(c.Title), query) ||
 						strings.Contains(strings.ToLower(c.Company), query) ||

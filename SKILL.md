@@ -27,6 +27,7 @@ Options:
 - `--engaged` -- Show contacts in any engagement state (not ok, not archived)
 - `--style` -- Filter by contact style: periodic, ambient, triggered
 - `--search` -- Search by name, company, email, or tags
+- `--planned-for` -- Filter by planned_for date (today, YYYY-MM-DD, or any)
 - `--sort` -- Sort by: name (default), days, type, state
 
 ### show -- Show contact details
@@ -65,6 +66,7 @@ Options:
 - `--tags` -- Replace all non-contact tags (comma-separated)
 - `--add-tag <tag>` -- Add a tag (preserves existing)
 - `--remove-tag <tag>` -- Remove a tag
+- `--plan-for` -- Set planned_for date (natural language, YYYY-MM-DD, or `none` to clear)
 
 Cross-app relationship flags (values are ULIDs):
 - `--add-person <ulid>` / `--remove-person <ulid>`
@@ -122,6 +124,9 @@ apeople delete <id> --confirm
   "last_bump_date": "2026-02-10T14:00:00Z",
   "bump_count": 2,
   "company": "Acme Corp",
+  "role": "VP Engineering",
+  "location": "San Francisco",
+  "last_interaction_type": "email",
   "days_since_contact": 14
 }
 ```
@@ -131,7 +136,10 @@ Key fields:
 - `index_id` -- stable numeric ID for CLI commands
 - `label` -- short handle (e.g. `@sarahc`)
 - `days_since_contact` -- -1 if never contacted, otherwise days since last contact
+- `last_interaction_type` -- type of most recent interaction (email, call, text, meeting, social, bump, note)
 - `related_people`, `related_tasks`, `related_ideas` -- arrays of ULIDs (always `[]`, never null)
+- `company`, `role`, `location`, `email`, `phone` -- omitted from JSON when not set
+- `apeople show` includes a `content` field with the markdown body; `list` does not
 
 ## Contact Types and Frequencies
 
