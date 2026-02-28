@@ -35,6 +35,12 @@ func Run(cfg *config.Config, args []string) error {
 		cfg.ContactsDirectory = envDir
 	}
 
+	// Sync on startup/shutdown — skip for --json (programmatic/aweb use)
+	if !globalFlags.JSON {
+		SyncOnStartup(cfg)
+		defer SyncOnShutdown(cfg)
+	}
+
 	// If no arguments, launch TUI
 	if len(remaining) == 0 {
 		m := ui.NewModel(cfg.ContactsDirectory)
@@ -59,6 +65,7 @@ Commands:
   log        Log an interaction
   bump       Bump a contact (review without contacting)
   delete     Delete a contact
+  sync       Sync files with Cloudflare R2
   migrate    Migrate from Denote format to acore format
 
 Global Options:
@@ -77,6 +84,7 @@ Global Options:
 		logCommand(cfg),
 		bumpCommand(cfg),
 		deleteCommand(cfg),
+		syncCommand(cfg),
 		migrateCommand(cfg),
 	)
 

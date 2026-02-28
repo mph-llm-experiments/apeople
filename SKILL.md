@@ -203,6 +203,20 @@ atask show <ulid> --json
 anote show <ulid> --json
 ```
 
+## Sync (R2 Cloud Storage)
+
+Sync contact files to/from Cloudflare R2. Requires `[r2]` section in config.toml.
+
+```bash
+apeople sync            # Push local → R2 (default)
+apeople sync --push     # Push local → R2
+apeople sync --pull     # Pull R2 → local
+```
+
+Push uploads new/changed local files to R2 and deletes R2-only files. Pull does the reverse. Only `*.md` entity files are synced (not counter files or config).
+
+Automatic sync happens at CLI startup (pull) and shutdown (push) when R2 is configured, but only for interactive use — skipped when `--json` is set. Automatic sync never deletes files; only explicit `sync --push`/`--pull` can delete.
+
 ## Configuration
 
 Config: `~/.config/acore/config.toml`
