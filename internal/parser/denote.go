@@ -15,7 +15,9 @@ import (
 // ParseContactFile parses an acore-format contact file
 func ParseContactFile(path string) (model.Contact, error) {
 	var contact model.Contact
-	content, err := acore.ReadFile(path, &contact)
+	store := acore.NewLocalStore(filepath.Dir(path))
+	name := filepath.Base(path)
+	content, err := acore.ReadFile(store, name, &contact)
 	if err != nil {
 		return model.Contact{}, fmt.Errorf("error parsing contact file: %w", err)
 	}
@@ -57,7 +59,8 @@ func SaveContactFile(contact model.Contact) error {
 	// Update modified timestamp
 	contact.Modified = acore.Now()
 
-	return acore.WriteFile(contact.FilePath, &contact, contact.Content)
+	store := acore.NewLocalStore(filepath.Dir(contact.FilePath))
+	return acore.WriteFile(store, filepath.Base(contact.FilePath), &contact, contact.Content)
 }
 
 // GenerateFilePath generates a file path for a new contact using acore conventions.
@@ -79,14 +82,15 @@ func FindContacts(dir string) ([]model.Contact, error) {
 		return nil, fmt.Errorf("contacts path '%s' is not a directory", dir)
 	}
 
-	scanner := &acore.Scanner{Dir: dir}
-	files, err := scanner.FindByType("contact")
+	store := acore.NewLocalStore(dir)
+	scanner := &acore.Scanner{Store: store}
+	names, err := scanner.FindByType("contact")
 	if err != nil {
 		return nil, err
 	}
 
-	for _, path := range files {
-		contact, err := ParseContactFile(path)
+	for _, name := range names {
+		contact, err := ParseContactFile(filepath.Join(dir, name))
 		if err != nil {
 			continue // skip unparseable files
 		}
@@ -103,7 +107,7 @@ func FindContacts(dir string) ([]model.Contact, error) {
 
 // AssignIndexIDs ensures all contacts have index_id values, assigning new ones as needed
 func AssignIndexIDs(dir string, contacts []model.Contact) ([]model.Contact, error) {
-	counter, err := acore.NewIndexCounter(dir, "apeople")
+	counter, err := acore.NewIndexCounter(acore.NewLocalStore(dir), "apeople")
 	if err != nil {
 		return contacts, fmt.Errorf("failed to get ID counter: %w", err)
 	}

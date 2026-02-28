@@ -371,7 +371,7 @@ func newCommand(cfg *config.Config) *Command {
 			contact.Location = *location
 
 			// Get index_id
-			counter, err := acore.NewIndexCounter(cfg.ContactsDirectory, "apeople")
+			counter, err := acore.NewIndexCounter(acore.NewLocalStore(cfg.ContactsDirectory), "apeople")
 			if err != nil {
 				return fmt.Errorf("failed to get ID counter: %w", err)
 			}
@@ -791,15 +791,16 @@ func migrateCommand(cfg *config.Config) *Command {
 			}
 
 			// Initialize the index counter from migrated files
-			counter, err := acore.NewIndexCounter(cfg.ContactsDirectory, "apeople")
+			migrateStore := acore.NewLocalStore(cfg.ContactsDirectory)
+			counter, err := acore.NewIndexCounter(migrateStore, "apeople")
 			if err != nil {
 				return fmt.Errorf("failed to create counter: %w", err)
 			}
-			readIndexID := func(path string) (int, error) {
+			readIndexID := func(name string) (int, error) {
 				var entity struct {
 					acore.Entity `yaml:",inline"`
 				}
-				if _, err := acore.ReadFile(path, &entity); err != nil {
+				if _, err := acore.ReadFile(migrateStore, name, &entity); err != nil {
 					return 0, err
 				}
 				return entity.IndexID, nil
